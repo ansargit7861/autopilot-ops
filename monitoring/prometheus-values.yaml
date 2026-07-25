@@ -1,0 +1,46 @@
+# Minimal resource footprint - tuned to fit alongside the app on a
+# single t2.micro (1 vCPU / 1GB RAM). Install with:
+#   helm install monitoring prometheus-community/kube-prometheus-stack \
+#     -f prometheus-values.yaml -n monitoring --create-namespace
+
+prometheus:
+  prometheusSpec:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 200Mi
+      limits:
+        cpu: 300m
+        memory: 400Mi
+    retention: 6h   # short retention to save disk on a small instance
+
+grafana:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 100Mi
+    limits:
+      cpu: 150m
+      memory: 200Mi
+  service:
+    type: NodePort
+    nodePort: 30300
+  adminPassword: changeme   # override via --set in production
+
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 50Mi
+      limits:
+        cpu: 100m
+        memory: 100Mi
+
+# Disable heavy default components not needed for this demo
+kubeStateMetrics:
+  enabled: true
+nodeExporter:
+  enabled: true
+defaultRules:
+  create: true

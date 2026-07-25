@@ -1,0 +1,61 @@
+# Alertmanager routing config: sends firing alerts to the remediation bot.
+# Apply after the monitoring stack is installed:
+#   kubectl apply -f alertmanager-config.yaml -n monitoring
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+type: Opaque
+stringData:
+  alertmanager.yaml: |
+    route:
+      receiver: remediation-bot
+      group_by: ["alertname"]
+      group_wait: 10s
+      repeat_interval: 10m
+    receivers:
+      - name: remediation-bot
+        webhook_configs:
+          - url: "http://remediation-bot.autopilot-ops.svc.cluster.local:8080/webhook"
+            send_resolved: false
+---
+# Custom alert rules that the remediation bot listens for
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: autopilot-remediation-rules
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: autopilot-ops.rules
+      rules:
+        - alert: PodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{namespace="autopilot-ops"}[10m]) > 3
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash looping"
+
+        - alert: HighMemoryUsage
+          expr: |
+            container_memory_working_set_bytes{namespace="autopilot-ops"}
+            / container_spec_memory_limit_bytes{namespace="autopilot-ops"} > 0.9
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} is using >90% of its memory limit"
+
+        - alert: DeploymentDegraded
+          expr: |
+            kube_deployment_status_replicas_available{namespace="autopilot-ops"}
+            < kube_deployment_spec_replicas{namespace="autopilot-ops"}
+          for: 3m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Deployment {{ $labels.deployment }} has fewer available replicas than desired"
