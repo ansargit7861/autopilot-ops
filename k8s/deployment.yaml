@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autopilot-app
+  namespace: autopilot-ops
+  labels:
+    app: autopilot-app
+spec:
+  replicas: 2
+  revisionHistoryLimit: 5   # keeps old ReplicaSets so rollback is possible
+  selector:
+    matchLabels:
+      app: autopilot-app
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: autopilot-app
+    spec:
+      containers:
+        - name: autopilot-app
+          image: <YOUR_DOCKERHUB_USERNAME>/autopilot-app:latest
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 3
+            periodSeconds: 5
